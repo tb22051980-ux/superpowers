@@ -135,7 +135,8 @@
   .trk .meta span{color:var(--muted);font-family:var(--body);font-size:10px;letter-spacing:.06em;text-transform:uppercase;margin-right:4px}
   .trk .desc{color:var(--muted);font-size:12px;margin-top:4px}
   .trk canvas{display:block;width:100%;height:70px;margin-top:6px}
-  .car .swatch{height:44px}
+  .car .preview{display:block;width:100%;aspect-ratio:16/9;border-radius:6px;margin-bottom:8px;background:radial-gradient(ellipse at 50% 70%,rgba(124,185,220,.18),rgba(0,0,0,0) 70%),#0C1014}
+  .cars{grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}
   .cars{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
   .modes{display:flex;gap:8px;flex-wrap:wrap}
   .mode{cursor:pointer;border:1px solid var(--panel-edge);border-radius:6px;padding:10px 16px;background:rgba(255,255,255,.03);position:relative;min-width:200px;flex:1}
@@ -767,8 +768,8 @@ import { Lensflare, LensflareElement } from 'three/addons/objects/Lensflare.js';
     const [u,wb,ws,ys,wr,yr]=s; const yb=P.yb;
     const half=[[0,yb],[wb*0.8,yb],[wb,yb+0.02],[ws,yb+(ys-yb)*0.4],[ws,ys],[wr+(ws-wr)*0.55,ys+(yr-ys)*0.4],[wr,Math.max(ys+0.01,yr-0.02)],[wr*0.55,Math.max(ys+0.02,yr)],[0,Math.max(ys+0.02,yr)+0.005]];
     const curve=new THREE.CatmullRomCurve3(half.map(p=>new THREE.Vector3(0,p[1],p[0])),false,'catmullrom',0.3); const pts=curve.getPoints(RING/2-1);
-    const ring=[]; for(let i=pts.length-1;i>=0;i--) ring.push([pts[i].y,-pts[i].z]); for(let i=1;i<pts.length-1;i++) ring.push([pts[i].y,pts[i].z]);
-    return ring; // Start unten Mitte, über die linke Seite nach oben, rechte Seite wieder nach unten
+    const ring=[]; for(let i=0;i<pts.length;i++) ring.push([pts[i].y,pts[i].z]); for(let i=pts.length-2;i>=1;i--) ring.push([pts[i].y,-pts[i].z]);
+    return ring; // Start unten Mitte, rechte Seite nach oben (v=0..0.5), linke Seite wieder nach unten (v=0.5..1)
   }
   function loftBody(P){
     const st=carStations(P); const S=st.length; const rings=st.map(s=>sectionRing(P,s)); const M=rings[0].length;
@@ -794,9 +795,10 @@ import { Lensflare, LensflareElement } from 'three/addons/objects/Lensflare.js';
     x.fillStyle=trim; x.fillRect(0,H*0.455,W,H*0.028); x.fillRect(0,H*0.517,W,H*0.028);
     // Seitenstreifen (Schwellerbereich) und Startnummern
     x.fillStyle=trim; x.fillRect(W*0.08,H*0.09,W*0.84,H*0.03); x.fillRect(W*0.08,H*0.88,W*0.84,H*0.03);
-    const number=(cy,flip)=>{ x.save(); x.translate(W*0.5,cy); if(flip) x.scale(1,-1); x.fillStyle='#FFFFFF'; x.beginPath(); x.roundRect(-W*0.075,-H*0.085,W*0.15,H*0.17,10); x.fill(); x.fillStyle='#14171A'; x.font='900 84px "Saira Condensed","Arial Narrow",sans-serif'; x.textAlign='center'; x.textBaseline='middle'; x.fillText(String(num),0,6); x.restore(); };
+    // rechte Seite (v<0,5): v wächst nach oben, Textur also vertikal spiegeln; linke Seite: horizontal spiegeln
+    const number=(cy,left)=>{ x.save(); x.translate(W*0.5,cy); if(left) x.scale(-1,1); else x.scale(1,-1); x.fillStyle='#FFFFFF'; x.beginPath(); x.roundRect(-W*0.075,-H*0.085,W*0.15,H*0.17,10); x.fill(); x.fillStyle='#14171A'; x.font='900 84px "Saira Condensed","Arial Narrow",sans-serif'; x.textAlign='center'; x.textBaseline='middle'; x.fillText(String(num),0,6); x.restore(); };
     number(H*0.25,false); number(H*0.75,true);
-    const word=(cy,flip,t)=>{ x.save(); x.translate(W*0.5,cy); if(flip) x.scale(1,-1); x.fillStyle='rgba(255,255,255,.92)'; x.font='700 40px "Saira Condensed","Arial Narrow",sans-serif'; x.textAlign='center'; x.textBaseline='middle'; x.fillText('RENNLINIE',-W*0.22,0); x.fillText(t,W*0.24,0); x.restore(); };
+    const word=(cy,left,t)=>{ x.save(); x.translate(W*0.5,cy); if(left) x.scale(-1,1); else x.scale(1,-1); x.fillStyle='rgba(255,255,255,.92)'; x.font='700 40px "Saira Condensed","Arial Narrow",sans-serif'; x.textAlign='center'; x.textBaseline='middle'; x.fillText('RENNLINIE',-W*0.22,0); x.fillText(t,W*0.24,0); x.restore(); };
     word(H*0.155,false,'VOLLGAS'); word(H*0.845,true,'VOLLGAS');
     // Fenster: dunkel und glatt
     for(const [u0,u1,v0,v1] of glass){ x.fillStyle='#0B1014'; x.fillRect(W*u0,H*v0,W*(u1-u0),H*(v1-v0)); rx.fillStyle='#101010'; rx.fillRect(W*u0,H*v0,W*(u1-u0),H*(v1-v0)); }
@@ -1159,6 +1161,34 @@ import { Lensflare, LensflareElement } from 'three/addons/objects/Lensflare.js';
   }
   window.addEventListener('gamepadconnected',()=>{ pad.connected=false; });
 
+  /* ================= 3D-Vorschau der Wagen im Menü ================= */
+  const preview=(function(){
+    let pr=null, pscene=null, pcam=null, items=[], ready=false, turn=0;
+    function init(){
+      if(ready) return; ready=true;
+      pr=new THREE.WebGLRenderer({antialias:true,alpha:true,powerPreference:'low-power'}); pr.setPixelRatio(1); pr.setSize(360,200,false);
+      pr.toneMapping=THREE.ACESFilmicToneMapping; pr.toneMappingExposure=0.8; pr.outputColorSpace=THREE.SRGBColorSpace; pr.shadowMap.enabled=true; pr.shadowMap.type=THREE.PCFSoftShadowMap;
+      pscene=new THREE.Scene(); pcam=new THREE.PerspectiveCamera(30,360/200,0.1,100);
+      const psky=new Sky(); psky.scale.setScalar(1000); const u=psky.material.uniforms; u.turbidity.value=3; u.rayleigh.value=1.1; u.mieCoefficient.value=0.004; u.sunPosition.value.set(0.4,0.7,0.6).normalize();
+      const envScene=new THREE.Scene(); envScene.add(psky); const pm=new THREE.PMREMGenerator(pr); pscene.environment=pm.fromScene(envScene).texture;
+      const key=new THREE.DirectionalLight('#FFF3DC',3.0); key.position.set(5,7,6); key.castShadow=true; key.shadow.mapSize.set(1024,1024); key.shadow.camera.left=-4; key.shadow.camera.right=4; key.shadow.camera.top=4; key.shadow.camera.bottom=-4; key.shadow.bias=-0.0008; pscene.add(key);
+      pscene.add(new THREE.HemisphereLight('#DCE8F0','#3A3F45',0.9)); const fill=new THREE.DirectionalLight('#BFD8F0',1.2); fill.position.set(-6,3,-4); pscene.add(fill);
+      const floor=new THREE.Mesh(new THREE.CircleGeometry(4.2,48),new THREE.MeshStandardMaterial({color:'#2A323B',roughness:0.3,metalness:0.2,envMapIntensity:0.5})); floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; pscene.add(floor);
+      const ringM=new THREE.Mesh(new THREE.RingGeometry(4.0,4.2,48),new THREE.MeshBasicMaterial({color:'#F08A2C'})); ringM.rotation.x=-Math.PI/2; ringM.position.y=0.005; pscene.add(ringM);
+      items=CARS.map(c=>{ const m=buildCarMesh(c.color,c.trim,c.cls,false); m.traverse(o=>{ if(o.material&&'envMapIntensity' in o.material) o.material.envMapIntensity=Math.min(o.material.envMapIntensity,0.5); }); m.visible=false; pscene.add(m); return {car:c,mesh:m,canvas:$('cp-'+c.id)}; });
+    }
+    function render(dt){
+      if(!ready) init(); turn+=dt*0.55;
+      for(const it of items){ if(!it.canvas) continue; const rect=it.canvas.getBoundingClientRect(); if(rect.width===0) continue;
+        it.mesh.visible=true; it.mesh.rotation.y=turn+(it.car===carDef?0:0.9)+Math.PI*0.72;
+        const L=it.mesh.userData.len; pcam.position.set(L*0.55,1.35,L*1.25); pcam.lookAt(0,0.5,0);
+        pr.render(pscene,pcam); it.mesh.visible=false;
+        if(it.canvas.width!==360){ it.canvas.width=360; it.canvas.height=200; }
+        const c=it.canvas.getContext('2d'); c.clearRect(0,0,360,200); c.drawImage(pr.domElement,0,0); }
+    }
+    return {render};
+  })();
+
   /* ================= Menü ================= */
   function trackShape(t){ const keep={segments,pts,bbox,avgY,trackLength}; const st=computeCenterline(t); const out={pts:pts.map(p=>({x:p.x,z:p.z})),bbox,km:st.km,corners:st.corners};
     segments=keep.segments; pts=keep.pts; bbox=keep.bbox; avgY=keep.avgY; trackLength=keep.trackLength; return out; }
@@ -1183,7 +1213,7 @@ import { Lensflare, LensflareElement } from 'three/addons/objects/Lensflare.js';
     ui.carList.innerHTML=CARS.map((c,i)=>`
       <label class="car">
         <input type="radio" name="car" id="car-${c.id}" value="${c.id}" ${c===carDef?'checked':''}>
-        <div class="swatch" style="background:${c.color}"></div>
+        <canvas class="preview" id="cp-${c.id}" aria-hidden="true"></canvas>
         <div class="name">${c.name}</div>
         <div class="region" style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">${c.cls}</div>
         <div class="desc">${c.desc}</div>
@@ -1213,6 +1243,7 @@ import { Lensflare, LensflareElement } from 'three/addons/objects/Lensflare.js';
     while(acc>=STEP){ update(STEP); acc-=STEP; }
     if(msgT>0){ msgT-=dt; if(msgT<=0 && state!=='paused') ui.msg.hidden=true; }
     render(dt);
+    if(state==='menu' && !ui.start.hidden) preview.render(dt);
     if(!ui.hud.hidden) hud();
     requestAnimationFrame(frame);
   }
