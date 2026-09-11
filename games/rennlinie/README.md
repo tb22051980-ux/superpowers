@@ -6,6 +6,11 @@ zwei fiktive Kurse), 8 Wagen mit spiegelndem Lack, Echtzeit-Schatten, Wald, Berg
 Rennen gegen 8 Gegner oder Zeitfahren mit Geist-Runde, Minimap.
 Tastatur, Touch und Gamepad (Xbox, PlayStation, Standard-Mapping, mit Vibration).
 
+Das Fahrzeugmodell (`car.glb`, 40.000 Dreiecke, WebP-Texturen, meshopt-komprimiert) wurde per
+Text-zu-3D (Hunyuan 3D v3.1 über Higgsfield) erzeugt und mit gltf-transform verkleinert. Es steckt als
+Data-URI in `index.html`; die weißen Lackflächen werden im Shader pro Wagen eingefärbt. Fehlt das Modell
+oder lädt es nicht, fällt das Spiel auf die prozedurale Karosserie zurück.
+
 Die Strecken sind als Wegpunkte in Metern definiert (`wp` in `index.html`); eine geschlossene
 Catmull-Rom-Kurve dazwischen liefert Fahrbahn, Curbs, Gelände und die Kurvenkräfte der Fahrphysik.
 
@@ -67,7 +72,8 @@ Ergebnis: `desktop/dist/Rennlinie-win32-x64/Rennlinie.exe` (Ordner komplett kopi
 
 | Datei | Zweck |
 |-------|-------|
-| `index.html` | das komplette Spiel |
+| `index.html` | das komplette Spiel (inklusive eingebettetem Fahrzeugmodell) |
+| `car.glb` | generiertes Fahrzeugmodell, Quelle für die Einbettung |
 | `manifest.webmanifest`, `sw.js`, `icon-*.png` | Web-App-Installation und Offline-Betrieb |
 | `wrap-www.cjs` | packt `index.html` in ein vollständiges HTML-Dokument für die Apps |
 | `windows/` | Neutralino-Projekt, kleines Windows-Programm |
