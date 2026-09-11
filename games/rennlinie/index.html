@@ -40,7 +40,7 @@
   .hud-laps dt{color:var(--muted);font-size:12px;letter-spacing:.06em;text-transform:uppercase}
   .hud-laps dd{margin:0;font-family:var(--display);font-size:18px;text-align:right}
   .hud-laps dd#tBest{color:var(--gulf)}
-  .hud-pos{grid-column:3;grid-row:1;text-align:right;min-width:100px}
+  .hud-pos{grid-column:3;grid-row:1;text-align:right;min-width:100px;align-self:start}
   .hud-pos .big.lead{color:var(--orange)}
   .hud-progress{grid-column:2;grid-row:1;align-self:start;justify-self:center;
                 width:min(46vw,420px);height:6px;margin-top:6px;background:rgba(255,255,255,.14);
@@ -116,6 +116,19 @@
   .trk canvas{display:block;width:100%;height:44px;margin-top:6px}
   .car .swatch{height:44px}
   .cars{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+  .modes{display:flex;gap:8px;flex-wrap:wrap}
+  .mode{cursor:pointer;border:1px solid var(--panel-edge);border-radius:6px;padding:10px 16px;background:rgba(255,255,255,.03);position:relative;min-width:200px;flex:1}
+  .mode input{position:absolute;opacity:0;pointer-events:none}
+  .mode:has(input:checked){border-color:var(--orange);background:rgba(240,138,44,.08)}
+  .mode:has(input:focus-visible){outline:2px solid var(--gulf);outline-offset:2px}
+  .mode .name{font-family:var(--display);font-size:22px;font-weight:600;line-height:1}
+  .mode .desc{color:var(--muted);font-size:12px;margin-top:3px}
+  .hud-pos .delta{font-family:var(--display);font-weight:700;font-size:clamp(30px,5vw,46px);line-height:1}
+  .hud-pos .delta.plus{color:var(--red)} .hud-pos .delta.minus{color:var(--good)}
+  #btnEnd{pointer-events:auto;grid-column:1;grid-row:3;align-self:end;justify-self:start;
+          font-family:var(--display);font-size:16px;letter-spacing:.08em;text-transform:uppercase;
+          background:var(--panel);border:1px solid var(--panel-edge);color:var(--chalk);border-radius:6px;padding:8px 14px;cursor:pointer}
+  #btnEnd:focus-visible{outline:2px solid var(--gulf)}
   .pad-hint{color:var(--muted);font-size:13px;margin-top:8px}
   .pad-hint b{color:var(--good);font-weight:600}
   .controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:6px 20px;margin:0;padding:0;list-style:none;color:var(--muted)}
@@ -146,7 +159,7 @@
   <div id="hud" hidden>
     <div class="hud-box hud-laps">
       <div class="eyebrow">Runde</div>
-      <div class="big"><span id="lapNo">1</span><span class="of">/3</span></div>
+      <div class="big"><span id="lapNo">1</span><span class="of" id="lapOf">/3</span></div>
       <dl>
         <dt>Aktuell</dt><dd id="tCur">0:00.000</dd>
         <dt>Letzte</dt><dd id="tLast">–</dd>
@@ -155,9 +168,11 @@
     </div>
     <div class="hud-progress" aria-hidden="true"><div id="prog"></div></div>
     <div class="hud-box hud-pos">
-      <div class="eyebrow">Position</div>
+      <div class="eyebrow" id="posLabel">Position</div>
       <div class="big" id="posBig"><span id="pos">9</span><span class="of">/<span id="posOf">9</span></span></div>
+      <div class="delta" id="delta" hidden>–</div>
     </div>
+    <button type="button" id="btnEnd" hidden>Zeitfahren beenden</button>
     <div id="countdown" hidden><i></i><i></i><i></i><i></i><i></i></div>
     <div id="msg" hidden></div>
     <div class="hud-speed">
@@ -183,6 +198,12 @@
       <h1>Renn<em>linie</em></h1>
       <p class="tagline">Drei Runden gegen acht Gegner, die vor dir starten. Vierzehn Strecken, acht Wagen. Finde die Linie.</p>
 
+      <h2>Modus</h2>
+      <div class="modes">
+        <label class="mode"><input type="radio" name="mode" id="mode-race" value="race" checked><div class="name">Rennen</div><div class="desc">Drei Runden gegen acht Gegner, Start von ganz hinten.</div></label>
+        <label class="mode"><input type="radio" name="mode" id="mode-tt" value="tt"><div class="name">Zeitfahren</div><div class="desc">Allein auf der Strecke, so viele Runden du willst. Deine beste Runde fährt als Geist mit.</div></label>
+      </div>
+
       <h2>Strecke wählen</h2>
       <div class="tracks" id="trackList"></div>
 
@@ -197,8 +218,9 @@
         <li><kbd>P</kbd><kbd>Esc</kbd> Pause</li>
         <li><kbd>R</kbd> Neustart</li>
         <li><kbd>M</kbd> Motor stumm</li>
+        <li><kbd>Enter</kbd> Zeitfahren beenden</li>
       </ul>
-      <p class="pad-hint" id="padHint">Gamepad: linker Stick lenkt, rechter Trigger Gas, linker Trigger Bremse, A startet, Start pausiert, Steuerkreuz wechselt Strecke (oben/unten) und Wagen (links/rechts). Kein Gamepad erkannt, drücke eine Taste am Controller.</p>
+      <p class="pad-hint" id="padHint">Gamepad: linker Stick lenkt, rechter Trigger Gas, linker Trigger Bremse, A startet, Start pausiert, B beendet das Zeitfahren, Steuerkreuz wechselt Strecke (oben/unten) und Wagen (links/rechts). Kein Gamepad erkannt, drücke eine Taste am Controller.</p>
       <p class="note">Auf dem Handy erscheinen Tasten am unteren Rand. Neben der Strecke wird der Wagen langsam, Bäume und Schilder kosten fast die ganze Geschwindigkeit.</p>
 
       <div class="row">
@@ -212,7 +234,7 @@
   <div id="result" class="overlay" hidden>
     <div class="sheet">
       <div class="result-head">
-        <div class="place"><span id="resPos">1</span><small>von <span id="resOf">9</span></small></div>
+        <div class="place"><span id="resPos">1</span><small id="resOf">von 9</small></div>
         <div>
           <div class="eyebrow">Ziel</div>
           <div class="big" id="resTitle">Zieleinlauf</div>
@@ -222,7 +244,7 @@
       <table>
         <thead><tr><th>Runde</th><th style="text-align:right">Zeit</th></tr></thead>
         <tbody id="resLaps"></tbody>
-        <tfoot><tr><th>Gesamt</th><td class="t" id="resTotal"></td></tr></tfoot>
+        <tfoot><tr><th id="resTotalLabel">Gesamt</th><td class="t" id="resTotal"></td></tr></tfoot>
       </table>
       <p class="note" id="resNote"></p>
       <div class="row">
@@ -330,7 +352,7 @@
   /* ================= DOM ================= */
   const $=id=>document.getElementById(id);
   const canvas=$('track'), ctx=canvas.getContext('2d');
-  const ui={hud:$('hud'),lapNo:$('lapNo'),tCur:$('tCur'),tLast:$('tLast'),tBest:$('tBest'),pos:$('pos'),posOf:$('posOf'),posBig:$('posBig'),
+  const ui={hud:$('hud'),lapNo:$('lapNo'),lapOf:$('lapOf'),posLabel:$('posLabel'),delta:$('delta'),btnEnd:$('btnEnd'),resTotalLabel:$('resTotalLabel'),tCur:$('tCur'),tLast:$('tLast'),tBest:$('tBest'),pos:$('pos'),posOf:$('posOf'),posBig:$('posBig'),
     prog:$('prog'),kmh:$('kmh'),gear:$('gear'),rpm:$('rpm'),countdown:$('countdown'),msg:$('msg'),
     start:$('start'),result:$('result'),touch:$('touch'),carList:$('carList'),startBest:$('startBest'),
     resPos:$('resPos'),resOf:$('resOf'),resTitle:$('resTitle'),resCar:$('resCar'),resLaps:$('resLaps'),resTotal:$('resTotal'),resNote:$('resNote')};
@@ -410,6 +432,21 @@
   let maxSpeed=MAXSPEED, accelRate=0, lap=1, lapTimes=[], lapClock=0, bestLap=null, lastLap=null, lastPos=0;
   let countdownT=0, msgT=0, raceRank=9, finishRank=null, resultStr='';
   let pauseFrom='racing';
+  let mode='race';                       // race | tt
+  let ghost=null, rec=[], recStep=0;     // Geist: {t, s:[[pos,x],...]} bei 20 Abtastungen pro Sekunde
+  const REC_EVERY=3;
+  const ghostKey=()=>'rennlinie.ghost.'+trackDef.id+'.'+carDef.id;
+  function loadGhost(){ try{ const j=store(ghostKey()); ghost=j?JSON.parse(j):null; if(ghost&&!(ghost.s&&ghost.s.length>1)) ghost=null; }catch(e){ ghost=null; } }
+  function ghostAt(ms){ // Position und Spur des Geists zur Rundenzeit ms
+    const st=STEP*REC_EVERY*1000; const f=ms/st; const i=Math.floor(f); const a=ghost.s[Math.min(i,ghost.s.length-1)], b=ghost.s[Math.min(i+1,ghost.s.length-1)];
+    const t=f-i; return {z:lerp(a[0],b[0],t), x:lerp(a[1],b[1],t), done:i>=ghost.s.length-1};
+  }
+  function ghostTimeAtPos(pos){ // Zeit, zu der der Geist diese Streckenposition erreicht hat (Positionen sind monoton)
+    const st=STEP*REC_EVERY*1000; const arr=ghost.s; let lo=0,hi=arr.length-1;
+    if(pos<=arr[0][0]) return 0; if(pos>=arr[hi][0]) return ghost.t;
+    while(hi-lo>1){ const m=(lo+hi)>>1; if(arr[m][0]<=pos) lo=m; else hi=m; }
+    const a=arr[lo][0], b=arr[hi][0]; const t=b>a?(pos-a)/(b-a):0; return (lo+t)*st;
+  }
   const BRAKE=-MAXSPEED, DECEL=-MAXSPEED/5, OFFROAD_DECEL=-MAXSPEED/2, OFFROAD_LIMIT=MAXSPEED/4;
 
   function resetRace(){
@@ -418,8 +455,12 @@
     position=0; playerX=0; speed=0; playerY=0; skyOffset=0; lastPos=0;
     lap=1; lapTimes=[]; lapClock=0; lastLap=null; finishRank=null;
     const stored=store(bestKey()); bestLap=stored?Number(stored):null;
-    cars=[];
-    for(let i=0;i<OPP.length;i++){
+    cars=[]; rec=[]; recStep=0; loadGhost();
+    ui.lapOf.textContent=mode==='tt'?'':'/'+LAPS;
+    ui.posLabel.textContent=mode==='tt'?'Geist':'Position';
+    ui.posBig.hidden=mode==='tt'; ui.delta.hidden=mode!=='tt'; ui.delta.textContent=ghost?'±0.000':'kein Geist'; ui.delta.className='delta';
+    ui.btnEnd.hidden=mode!=='tt';
+    for(let i=0;i<(mode==='tt'?0:OPP.length);i++){
       const z=(3+i*4)*SEG + SEG*0.5;
       const offset=(i%2===0?-0.55:0.55);
       const raceSpeed=MAXSPEED*(0.60+ (OPP.length-1-i)*0.038 + (i%3)*0.012);
@@ -531,11 +572,16 @@
 
     if(racing){
       lapClock+=dt*1000;
+      if(mode==='tt'){ if(recStep++%REC_EVERY===0){ const last=rec.length?rec[rec.length-1][0]:0; rec.push([Math.max(last,Math.round(position)),Math.round(playerX*1000)/1000]); } }
       if(position<startPos && (startPos-position)>trackLength/2){ // Ziellinie überquert (kein Rückversatz durch Kollision)
         const t=lapClock; lapTimes.push(t); lastLap=t; lapClock=0;
-        if(bestLap==null||t<bestLap){ bestLap=t; store(bestKey(),String(Math.round(t))); ui.tBest.textContent=fmt(bestLap); }
+        const improved=bestLap==null||t<bestLap;
+        if(improved){ bestLap=t; store(bestKey(),String(Math.round(t))); ui.tBest.textContent=fmt(bestLap); }
+        if(mode==='tt' && (improved||!ghost) && rec.length>1){ rec.push([trackLength,rec[rec.length-1][1]]); ghost={t,s:rec}; try{ store(ghostKey(),JSON.stringify(ghost)); }catch(e){} }
+        rec=[]; recStep=0;
         ui.tLast.textContent=fmt(t);
-        if(lapTimes.length>=LAPS){ finish(); } else { lap++; ui.lapNo.textContent=String(lap); showMsg('RUNDE '+lap,1.2,true); }
+        if(mode!=='tt' && lapTimes.length>=LAPS){ finish(); }
+        else { lap++; ui.lapNo.textContent=String(lap); showMsg(mode==='tt'&&improved&&lapTimes.length>1?'NEUE BESTZEIT':'RUNDE '+lap,1.2,true); }
       }
     }
     // Rangliste
@@ -550,9 +596,21 @@
 
   function finish(){
     state='finished'; finishRank=raceRank;
-    ui.msg.hidden=true;
+    ui.msg.hidden=true; ui.btnEnd.hidden=true;
     const total=lapTimes.reduce((a,b)=>a+b,0);
-    ui.resPos.textContent=String(finishRank); ui.resOf.textContent=String(OPP.length+1);
+    if(mode==='tt'){
+      if(!lapTimes.length){ $('btnMenu').click(); return; }
+      const best=Math.min(...lapTimes);
+      ui.resPos.textContent=fmt(best); ui.resOf.textContent='beste Runde';
+      ui.resTitle.textContent='Zeitfahren';
+      ui.resCar.textContent=carDef.name+' · '+trackDef.name+' ('+trackDef.region+') · '+lapTimes.length+(lapTimes.length===1?' Runde':' Runden');
+      ui.resLaps.innerHTML=lapTimes.map((t,i)=>'<tr'+(t===best?' class="best"':'')+'><td>Runde '+(i+1)+'</td><td class="t">'+fmt(t)+'</td></tr>').join('');
+      ui.resTotalLabel.textContent='Gesamt'; ui.resTotal.textContent=fmt(total);
+      ui.resNote.textContent='Die schnellste Runde ist blau markiert und fährt beim nächsten Zeitfahren auf dieser Strecke mit diesem Wagen als Geist mit.';
+      setTimeout(()=>{ ui.result.hidden=false; },400);
+      return;
+    }
+    ui.resPos.textContent=String(finishRank); ui.resOf.textContent='von '+(OPP.length+1);
     ui.resTitle.textContent=finishRank===1?'Sieg':finishRank<=3?'Podium':'Zieleinlauf';
     ui.resCar.textContent=carDef.name+' · '+trackDef.name+' ('+trackDef.region+') · '+LAPS+' Runden';
     const best=Math.min(...lapTimes);
@@ -681,6 +739,11 @@
 
     drawBackground();
 
+    let ghostSeg=null, ghostPos=null;
+    if(mode==='tt' && ghost && state==='racing'){
+      const g=ghostAt(lapClock); if(!g.done || lapClock<ghost.t+400){ ghostPos={z:g.z%trackLength,x:g.x}; ghostSeg=findSegment(ghostPos.z); }
+    }
+
     for(let n=0;n<DRAW;n++){
       const seg=segments[(base.index+n)%segments.length];
       seg.looped=seg.index<base.index;
@@ -703,6 +766,14 @@
         if(dw<1) continue;
         drawSprite(s,sx+(s.offset<0?-dw/2:dw/2),seg.p1.screen.y,dw,seg.clip);
       }
+      if(mode==='tt' && ghost && state==='racing' && seg===ghostSeg){
+        const g=ghostPos; const pct=pctRemaining(g.z,SEG);
+        const sc=lerp(seg.p1.screen.scale,seg.p2.screen.scale,pct);
+        const cx=lerp(seg.p1.screen.x,seg.p2.screen.x,pct)+sc*g.x*ROADW*W/2;
+        const cy=lerp(seg.p1.screen.y,seg.p2.screen.y,pct);
+        const dw=CARW*ROADW*sc*W/2;
+        if(dw>=1){ ctx.globalAlpha=0.45; drawCar(cx,cy,dw,'#DCE8F0','#7CB9DC',0,false,seg.clip); ctx.globalAlpha=1; }
+      }
       for(const car of seg.cars){
         const sc=lerp(seg.p1.screen.scale,seg.p2.screen.scale,car.percent);
         const cx=lerp(seg.p1.screen.x,seg.p2.screen.x,car.percent)+sc*car.offset*ROADW*W/2;
@@ -721,6 +792,8 @@
   }
 
   /* ================= HUD ================= */
+  function endTimeTrial(){ if(mode==='tt' && (state==='racing'||state==='paused')){ finish(); } }
+  ui.btnEnd.addEventListener('click',endTimeTrial);
   const GEARS=[0,0.12,0.26,0.42,0.6,0.8,1.01];
   function hud(){
     const pct=speed/maxSpeed;
@@ -731,6 +804,11 @@
     ui.rpm.style.height=Math.round(clamp(rpm,0,1)*100)+'%';
     ui.tCur.textContent=fmt(state==='racing'?lapClock:(lapTimes.length?0:0));
     ui.pos.textContent=String(raceRank); ui.posBig.classList.toggle('lead',raceRank===1);
+    if(mode==='tt' && ghost && state==='racing'){
+      const d=lapClock-ghostTimeAtPos(position);
+      ui.delta.textContent=(d>=0?'+':'−')+(Math.abs(d)/1000).toFixed(3);
+      ui.delta.className='delta '+(d>50?'plus':d<-50?'minus':'');
+    }
     ui.prog.style.width=(position/trackLength*100).toFixed(1)+'%';
     audio.update(clamp(rpm,0,1),pct);
   }
@@ -769,6 +847,7 @@
     if(e.code==='KeyP'||e.code==='Escape'){ togglePause(); }
     if(e.code==='KeyR' && (state==='racing'||state==='paused'||state==='finished')){ startRace(); }
     if(e.code==='KeyM'){ audio.toggleMute(); }
+    if(e.code==='Enter'){ endTimeTrial(); }
   });
   window.addEventListener('keyup',e=>{ if(e.code in KEYMAP){ keys[KEYMAP[e.code]]=false; e.preventDefault(); } });
   window.addEventListener('blur',()=>{ for(const k in keys) keys[k]=false; if(state==='racing') togglePause(); });
@@ -810,6 +889,7 @@
       if(eA) startRace();
     } else {
       if(eStart) togglePause();
+      if(edge(1)) endTimeTrial();   // B beendet das Zeitfahren
     }
   }
   window.addEventListener('gamepadconnected',()=>{ pad.connected=false; });
@@ -834,6 +914,7 @@
         <div class="desc">${t.desc}</div>
       </label>`; }).join('');
     for(const t of TRACKS) drawProfile($('prof-'+t.id),t);
+    document.querySelector('.modes').addEventListener('change',e=>{ mode=e.target.value; });
     $('trackList').addEventListener('change',e=>{ const t=TRACKS.find(x=>x.id===e.target.value); if(t){ trackDef=t; showBest(); } });
     ui.carList.innerHTML=CARS.map((c,i)=>`
       <label class="car">
@@ -871,11 +952,12 @@
   function boot(data){
     if(data && data.car){ const c=CARS.find(x=>x.id===data.car); if(c) carDef=c; }
     if(data && data.track){ const t=TRACKS.find(x=>x.id===data.track); if(t) trackDef=t; }
+    if(data && data.mode==='tt'){ mode='tt'; $('mode-tt').checked=true; }
     buildTrack(); buildMenu();
     requestAnimationFrame(frame);
   }
   if(window.claude && window.claude.hot){
-    try{ window.claude.hot.snapshot(()=>({car:carDef.id,track:trackDef.id})); }catch(e){}
+    try{ window.claude.hot.snapshot(()=>({car:carDef.id,track:trackDef.id,mode})); }catch(e){}
     window.claude.hot.ready ? window.claude.hot.ready(boot) : boot(window.claude.hot.data||{});
   } else boot({});
 })();
