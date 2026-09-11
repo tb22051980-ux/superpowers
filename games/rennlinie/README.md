@@ -1,9 +1,13 @@
 # Rennlinie
 
-Pseudo-3D-Rennspiel in einer einzigen HTML-Datei, ohne Abhängigkeiten.
-14 Strecken (12 nach europäischen Rennstrecken, Nordschleife, zwei fiktive Kurse),
-8 Wagen, Rennen gegen 8 Gegner oder Zeitfahren mit Geist-Runde.
+3D-Rennspiel im Browser (WebGL über Three.js, geladen vom cdnjs-CDN) in einer einzigen HTML-Datei.
+14 Strecken als echte 3D-Rundkurse mit Höhenprofil (12 nach europäischen Rennstrecken, Nordschleife,
+zwei fiktive Kurse), 8 Wagen mit spiegelndem Lack, Echtzeit-Schatten, Wald, Berge, Tribünen und Stadt,
+Rennen gegen 8 Gegner oder Zeitfahren mit Geist-Runde, Minimap.
 Tastatur, Touch und Gamepad (Xbox, PlayStation, Standard-Mapping, mit Vibration).
+
+Die Strecken sind als Wegpunkte in Metern definiert (`wp` in `index.html`); eine geschlossene
+Catmull-Rom-Kurve dazwischen liefert Fahrbahn, Curbs, Gelände und die Kurvenkräfte der Fahrphysik.
 
 ## Spielen
 
