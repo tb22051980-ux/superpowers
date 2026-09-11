@@ -1,0 +1,40 @@
+{
+  "$schema": "https://raw.githubusercontent.com/neutralinojs/neutralinojs/main/schemas/neutralino.config.schema.json",
+  "applicationId": "de.rennlinie.app",
+  "version": "1.0.0",
+  "defaultMode": "window",
+  "port": 0,
+  "documentRoot": "/www/",
+  "url": "/",
+  "enableServer": true,
+  "enableNativeAPI": false,
+  "tokenSecurity": "one-time",
+  "logging": { "enabled": false, "writeToLogFile": false },
+  "nativeAllowList": [],
+  "modes": {
+    "window": {
+      "title": "Rennlinie",
+      "width": 1280,
+      "height": 720,
+      "minWidth": 640,
+      "minHeight": 400,
+      "center": true,
+      "fullScreen": false,
+      "alwaysOnTop": false,
+      "icon": "/www/icon-512.png",
+      "enableInspector": false,
+      "borderless": false,
+      "maximize": false,
+      "hidden": false,
+      "resizable": true,
+      "exitProcessOnClose": true
+    }
+  },
+  "cli": {
+    "binaryName": "Rennlinie",
+    "resourcesPath": "/www/",
+    "extensionsPath": "/extensions/",
+    "binaryVersion": "6.1.0",
+    "clientVersion": "6.1.0"
+  }
+}
