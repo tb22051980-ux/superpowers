@@ -743,31 +743,44 @@ import { Lensflare, LensflareElement } from 'three/addons/objects/Lensflare.js';
     if(cls==='Elektro'){ Object.assign(P,{len:4.6,wid:1.9,roof:1.46,sh:0.98,cab:[0.24,0.64],wing:false}); }
     return P;
   }
-  // Querschnitt-Stationen: [u (0=Heck..1=Front), Bodenbreite, Schulterbreite, Schulterhöhe, Dachbreite, Dachhöhe] als Faktoren
-  function carStations(P){
-    const [c0,c1]=P.cab; const W=P.wid, sh=P.sh, R=P.roof, yb=P.yb;
-    const st=[
-      [0.0,  W*0.36,W*0.42, sh*0.82, W*0.28, sh*0.92],
-      [0.03, W*0.46,W*0.50, sh*0.98, W*0.38, sh+0.04],
-      [c0-0.08, W*0.48,W*0.51, sh, W*0.42, sh+0.02],
-      [c0,   W*0.48,W*0.51, sh, W*0.41, sh+0.05],
-      [c0+0.1, W*0.48,W*0.51, sh, W*0.38, R-0.06],
-      [c0+0.16, W*0.48,W*0.51, sh, W*0.37, R],
-      [c1-0.04, W*0.48,W*0.51, sh, W*0.37, R],
-      [c1+0.08, W*0.48,W*0.51, sh-0.02, W*0.40, sh+0.1],
-      [c1+0.12, W*0.48,W*0.51, sh-0.03, W*0.42, sh+0.02],
-      [0.82, W*0.47,W*0.50, sh-0.1, W*0.42, sh-0.08],
-      [0.95, W*0.45,W*0.48, sh-0.24, W*0.40, sh-0.22],
-      [1.0,  W*0.36,W*0.42, sh-0.4, W*0.3, sh-0.36]
+  // Querschnitt-Stationen: [u (0=Heck..1=Front), Bodenbreite, Schulterbreite, Schulterhöhe, Dachbreite, Dachhöhe]
+  function carKeyStations(P){
+    const [c0,c1]=P.cab; const W=P.wid, sh=P.sh, R=P.roof;
+    return [
+      [0.0,  W*0.30,W*0.36, sh*0.70, W*0.22, sh*0.80],
+      [0.02, W*0.42,W*0.47, sh*0.94, W*0.36, sh+0.02],
+      [0.07, W*0.47,W*0.505,sh, W*0.40, sh+0.03],
+      [c0-0.06, W*0.48,W*0.51, sh, W*0.42, sh+0.02],
+      [c0+0.02, W*0.48,W*0.51, sh, W*0.40, sh+0.10],
+      [c0+0.12, W*0.48,W*0.51, sh, W*0.375, R-0.03],
+      [c0+0.2, W*0.48,W*0.51, sh, W*0.37, R],
+      [c1-0.06, W*0.48,W*0.51, sh, W*0.37, R],
+      [c1+0.04, W*0.48,W*0.51, sh-0.01, W*0.39, sh+0.14],
+      [c1+0.12, W*0.48,W*0.51, sh-0.03, W*0.42, sh+0.03],
+      [0.84, W*0.475,W*0.50, sh-0.10, W*0.42, sh-0.08],
+      [0.94, W*0.46,W*0.49, sh-0.22, W*0.41, sh-0.20],
+      [0.985,W*0.40,W*0.44, sh-0.34, W*0.34, sh-0.31],
+      [1.0,  W*0.28,W*0.32, sh-0.42, W*0.22, sh-0.40]
     ];
-    // Radhäuser: Schulter über den Rädern leicht breiter
-    return st.map(s=>{ const u=s[0]; const near=Math.min(Math.abs(u-0.19),Math.abs(u-0.81)); const bump=near<0.09?(0.09-near)/0.09*0.05:0; return [u,s[1]+bump*0.5,s[2]+bump,s[3],s[4],s[5]]; });
   }
-  const RING=28;
+  // Skalarer Catmull-Rom über u für weiche Übergänge zwischen den Stationen
+  function crScalar(keys,u,k){ let s=0; while(s<keys.length-2 && keys[s+1][0]<u) s++; const p0=keys[Math.max(0,s-1)],p1=keys[s],p2=keys[Math.min(keys.length-1,s+1)],p3=keys[Math.min(keys.length-1,s+2)];
+    const t=clamp((u-p1[0])/Math.max(1e-6,p2[0]-p1[0]),0,1); const t2=t*t,t3=t2*t; const a=p0[k],b=p1[k],c=p2[k],d=p3[k];
+    return 0.5*((2*b)+(-a+c)*t+(2*a-5*b+4*c-d)*t2+(-a+3*b-3*c+d)*t3); }
+  const SECTIONS=40;
+  function carStations(P){
+    const keys=carKeyStations(P); const st=[];
+    for(let i=0;i<SECTIONS;i++){ const u=i/(SECTIONS-1); const s=[u]; for(let k=1;k<=5;k++) s.push(crScalar(keys,u,k));
+      // Radläufe: Schulter und Boden über den Rädern sanft breiter (Gauß-Glocke)
+      const bump=Math.exp(-Math.pow((u-0.19)/0.06,2))+Math.exp(-Math.pow((u-0.81)/0.06,2)); s[1]+=bump*0.035; s[2]+=bump*0.06; s[3]+=bump*0.02;
+      st.push(s); }
+    return st;
+  }
+  const RING=48;
   function sectionRing(P,s){ // geschlossener Ring (y,z) aus Halbprofil, geglättet
-    const [u,wb,ws,ys,wr,yr]=s; const yb=P.yb;
-    const half=[[0,yb],[wb*0.8,yb],[wb,yb+0.02],[ws,yb+(ys-yb)*0.4],[ws,ys],[wr+(ws-wr)*0.55,ys+(yr-ys)*0.4],[wr,Math.max(ys+0.01,yr-0.02)],[wr*0.55,Math.max(ys+0.02,yr)],[0,Math.max(ys+0.02,yr)+0.005]];
-    const curve=new THREE.CatmullRomCurve3(half.map(p=>new THREE.Vector3(0,p[1],p[0])),false,'catmullrom',0.3); const pts=curve.getPoints(RING/2-1);
+    const [u,wb,ws,ys,wr,yr]=s; const yb=P.yb; const top=Math.max(ys+0.02,yr);
+    const half=[[0,yb],[wb*0.55,yb],[wb*0.92,yb+0.01],[wb+ (ws-wb)*0.5,yb+(ys-yb)*0.16],[ws,yb+(ys-yb)*0.5],[ws*0.995,ys-0.02],[wr+(ws-wr)*0.72,ys+(top-ys)*0.22],[wr+(ws-wr)*0.3,ys+(top-ys)*0.6],[wr,top-0.025],[wr*0.6,top-0.004],[0,top]];
+    const curve=new THREE.CatmullRomCurve3(half.map(p=>new THREE.Vector3(0,p[1],p[0])),false,'centripetal',0.5); const pts=curve.getPoints(RING/2-1);
     const ring=[]; for(let i=0;i<pts.length;i++) ring.push([pts[i].y,pts[i].z]); for(let i=pts.length-2;i>=1;i--) ring.push([pts[i].y,-pts[i].z]);
     return ring; // Start unten Mitte, rechte Seite nach oben (v=0..0.5), linke Seite wieder nach unten (v=0.5..1)
   }
@@ -781,8 +794,12 @@ import { Lensflare, LensflareElement } from 'three/addons/objects/Lensflare.js';
     for(const [i,flip] of [[0,false],[S-1,true]]){ const x=-h+st[i][0]*P.len; const cy=(P.yb+st[i][5])/2; const ci=pos.length/3; pos.push(x,cy,0); uv.push(st[i][0],0.5);
       for(let j=0;j<M;j++){ const a=i*row+j,b=i*row+j+1; if(flip) idx.push(ci,a,b); else idx.push(ci,b,a); } }
     const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2)); g.setIndex(idx); g.computeVertexNormals();
-    // Fensterbereiche in UV: Kabinenstationen (Index 3..7) und Ringpunkte oberhalb der Schulter
-    const glass=[]; for(let i=3;i<=7;i++){ const s=st[i]; const r=rings[i]; let jmin=M,jmax=0; for(let j=0;j<M;j++){ if(r[j][0]>s[3]+0.03){ jmin=Math.min(jmin,j); jmax=Math.max(jmax,j); } } glass.push([st[i][0],st[Math.min(i+1,S-1)][0],jmin/M,(jmax+1)/M]); }
+    // Nahtnormalen (j=0 und j=M) angleichen
+    const nrm=g.attributes.normal; for(let i=0;i<S;i++){ const a=i*row, b=i*row+M; const nx=(nrm.getX(a)+nrm.getX(b))/2, ny=(nrm.getY(a)+nrm.getY(b))/2, nz=(nrm.getZ(a)+nrm.getZ(b))/2; nrm.setXYZ(a,nx,ny,nz); nrm.setXYZ(b,nx,ny,nz); }
+    // Fensterbereiche in UV: Kabinenstationen und Ringpunkte oberhalb der Schulter
+    const glass=[]; const [c0,c1]=P.cab; let u0=null,uPrev=null,vmin=1,vmax=0;
+    for(let i=0;i<S;i++){ const u=st[i][0]; const inCab=u>c0+0.03 && u<c1+0.13 && st[i][5]>st[i][3]+0.09; if(inCab){ const r=rings[i]; let jmin=M,jmax=0; for(let j=0;j<M;j++){ if(r[j][0]>st[i][3]+0.06){ jmin=Math.min(jmin,j); jmax=Math.max(jmax,j); } } if(u0===null) u0=u; vmin=Math.min(vmin,jmin/M); vmax=Math.max(vmax,(jmax+1)/M); uPrev=u; } }
+    if(u0!==null) glass.push([u0,uPrev,vmin,vmax]);
     return {geo:g,glass,st};
   }
   function liveryTextures(color,trim,num,glass){
@@ -795,10 +812,10 @@ import { Lensflare, LensflareElement } from 'three/addons/objects/Lensflare.js';
     x.fillStyle=trim; x.fillRect(0,H*0.455,W,H*0.028); x.fillRect(0,H*0.517,W,H*0.028);
     // Seitenstreifen (Schwellerbereich) und Startnummern
     x.fillStyle=trim; x.fillRect(W*0.08,H*0.09,W*0.84,H*0.03); x.fillRect(W*0.08,H*0.88,W*0.84,H*0.03);
-    // rechte Seite (v<0,5): v wächst nach oben, Textur also vertikal spiegeln; linke Seite: horizontal spiegeln
-    const number=(cy,left)=>{ x.save(); x.translate(W*0.5,cy); if(left) x.scale(-1,1); else x.scale(1,-1); x.fillStyle='#FFFFFF'; x.beginPath(); x.roundRect(-W*0.075,-H*0.085,W*0.15,H*0.17,10); x.fill(); x.fillStyle='#14171A'; x.font='900 84px "Saira Condensed","Arial Narrow",sans-serif'; x.textAlign='center'; x.textBaseline='middle'; x.fillText(String(num),0,6); x.restore(); };
+    // Empirisch geprüft: Seite v>0,5 liest ungespiegelt, Seite v<0,5 braucht eine horizontale Spiegelung
+    const number=(cy,left)=>{ x.save(); x.translate(W*0.5,cy); if(!left) x.scale(-1,1); x.fillStyle='#FFFFFF'; x.beginPath(); x.roundRect(-W*0.075,-H*0.085,W*0.15,H*0.17,10); x.fill(); x.fillStyle='#14171A'; x.font='900 84px "Saira Condensed","Arial Narrow",sans-serif'; x.textAlign='center'; x.textBaseline='middle'; x.fillText(String(num),0,6); x.restore(); };
     number(H*0.25,false); number(H*0.75,true);
-    const word=(cy,left,t)=>{ x.save(); x.translate(W*0.5,cy); if(left) x.scale(-1,1); else x.scale(1,-1); x.fillStyle='rgba(255,255,255,.92)'; x.font='700 40px "Saira Condensed","Arial Narrow",sans-serif'; x.textAlign='center'; x.textBaseline='middle'; x.fillText('RENNLINIE',-W*0.22,0); x.fillText(t,W*0.24,0); x.restore(); };
+    const word=(cy,left,t)=>{ x.save(); x.translate(W*0.5,cy); if(!left) x.scale(-1,1); x.fillStyle='rgba(255,255,255,.92)'; x.font='700 40px "Saira Condensed","Arial Narrow",sans-serif'; x.textAlign='center'; x.textBaseline='middle'; x.fillText('RENNLINIE',-W*0.22,0); x.fillText(t,W*0.24,0); x.restore(); };
     word(H*0.155,false,'VOLLGAS'); word(H*0.845,true,'VOLLGAS');
     // Fenster: dunkel und glatt
     for(const [u0,u1,v0,v1] of glass){ x.fillStyle='#0B1014'; x.fillRect(W*u0,H*v0,W*(u1-u0),H*(v1-v0)); rx.fillStyle='#101010'; rx.fillRect(W*u0,H*v0,W*(u1-u0),H*(v1-v0)); }
@@ -817,9 +834,9 @@ import { Lensflare, LensflareElement } from 'three/addons/objects/Lensflare.js';
     else { const tex=liveryTextures(color,trim,(carNo=(carNo*7+13)%89+1),glass); bodyMat=new THREE.MeshPhysicalMaterial({map:tex.map,roughnessMap:tex.rough,roughness:1,metalness:0.25,clearcoat:0.7,clearcoatRoughness:0.12,envMapIntensity:0.35}); }
     const body=new THREE.Mesh(geo,bodyMat); body.castShadow=!ghost; body.receiveShadow=!ghost; g.add(body);
     // Räder mit Felgenspeichen
-    const tireGeo=new THREE.CylinderGeometry(0.35,0.35,0.3,24); tireGeo.rotateX(Math.PI/2);
+    const tireGeo=new THREE.CylinderGeometry(0.35,0.35,0.3,36); tireGeo.rotateX(Math.PI/2);
     const tireMat=new THREE.MeshStandardMaterial({color:'#141416',roughness:0.85}); const rimMat=new THREE.MeshStandardMaterial({color:'#D8DCE0',metalness:0.95,roughness:0.2,alphaMap:rimAlpha(),transparent:true,side:THREE.DoubleSide,envMapIntensity:0.6}); const hubMat=new THREE.MeshStandardMaterial({color:'#2A2E33',roughness:0.6,metalness:0.6});
-    const rimGeo=new THREE.CircleGeometry(0.25,24); const hubGeo=new THREE.CylinderGeometry(0.24,0.24,0.26,16); hubGeo.rotateX(Math.PI/2);
+    const rimGeo=new THREE.CircleGeometry(0.25,36); const hubGeo=new THREE.CylinderGeometry(0.24,0.24,0.26,24); hubGeo.rotateX(Math.PI/2);
     g.userData.wheels=[]; g.userData.front=[]; g.userData.rear=[];
     for(const [x,z] of [[P.len*0.31,P.wid/2],[P.len*0.31,-P.wid/2],[-P.len*0.31,P.wid/2],[-P.len*0.31,-P.wid/2]]){
       const w=new THREE.Group(); const t=new THREE.Mesh(tireGeo,tireMat); t.castShadow=!ghost; w.add(t); const hub=new THREE.Mesh(hubGeo,hubMat); w.add(hub);
@@ -827,19 +844,19 @@ import { Lensflare, LensflareElement } from 'three/addons/objects/Lensflare.js';
       w.position.set(x,0.35,z); g.add(w); g.userData.wheels.push(w); if(x>0) g.userData.front.push(w); else g.userData.rear.push(w); }
     // Lichter (emissiv, für Bloom)
     const rl=new THREE.MeshStandardMaterial({color:'#7A1810',emissive:'#FF2A1A',emissiveIntensity:0.6,roughness:0.3});
-    for(const z of [-P.wid*0.33,P.wid*0.33]){ const l=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.12,0.4),rl); l.position.set(-P.len/2-0.01,P.sh*0.78,z); g.add(l); }
+    for(const z of [-P.wid*0.33,P.wid*0.33]){ const l=new THREE.Mesh(new THREE.CapsuleGeometry(0.05,0.3,3,10).rotateX(Math.PI/2),rl); l.position.set(-P.len/2-0.01,P.sh*0.78,z); g.add(l); }
     const bar=new THREE.Mesh(new THREE.BoxGeometry(0.04,0.04,P.wid*0.5),rl); bar.position.set(-P.len/2-0.01,P.sh*0.86,0); g.add(bar);
     const hl=new THREE.MeshStandardMaterial({color:'#EEF4FF',emissive:'#FFFFFF',emissiveIntensity:1.6});
-    for(const z of [-P.wid*0.34,P.wid*0.34]){ const l=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.12,0.36),hl); l.position.set(P.len/2-0.02,P.sh*0.66,z); g.add(l); }
+    for(const z of [-P.wid*0.34,P.wid*0.34]){ const l=new THREE.Mesh(new THREE.CapsuleGeometry(0.055,0.26,3,10).rotateX(Math.PI/2),hl); l.position.set(P.len/2-0.02,P.sh*0.66,z); g.add(l); }
     g.userData.rearMat=rl;
     // Spiegel, Splitter, Diffusor, Auspuff, Flügel
     const dark=new THREE.MeshStandardMaterial({color:'#15181B',roughness:0.7});
-    for(const z of [-P.wid*0.56,P.wid*0.56]){ const m=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.09,0.22),new THREE.MeshStandardMaterial({color,roughness:0.3,metalness:0.5})); m.position.set(P.len*(P.cab[1]-0.5)-0.1,P.sh+0.12,z); g.add(m); }
+    for(const z of [-P.wid*0.56,P.wid*0.56]){ const m=new THREE.Mesh(new THREE.CapsuleGeometry(0.05,0.12,4,10).rotateX(Math.PI/2),new THREE.MeshStandardMaterial({color,roughness:0.3,metalness:0.5})); m.position.set(P.len*(P.cab[1]-0.5)-0.1,P.sh+0.12,z); g.add(m); }
     const spl=new THREE.Mesh(new THREE.BoxGeometry(0.3,0.05,P.wid*0.98),dark); spl.position.set(P.len/2-0.12,P.yb-0.02,0); g.add(spl);
     const dif=new THREE.Mesh(new THREE.BoxGeometry(0.25,0.18,P.wid*0.92),dark); dif.position.set(-P.len/2+0.05,P.yb+0.04,0); g.add(dif);
     for(const z of [-P.wid*0.3,P.wid*0.3]){ const ex=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.2,10).rotateZ(Math.PI/2),new THREE.MeshStandardMaterial({color:'#9AA0A6',metalness:0.9,roughness:0.3})); ex.position.set(-P.len/2-0.02,P.yb+0.04,z); g.add(ex); }
     if(P.wing){ const sm=new THREE.MeshStandardMaterial({color:trim,roughness:0.35,metalness:0.5});
-      const wing=new THREE.Mesh(new THREE.BoxGeometry(0.34,0.04,P.wid*0.92),sm); wing.position.set(-P.len/2+0.18,P.sh+0.36,0); wing.rotation.z=-0.12; wing.castShadow=!ghost; g.add(wing);
+      const wing=new THREE.Mesh(new THREE.CapsuleGeometry(0.03,P.wid*0.9,3,12).rotateX(Math.PI/2),sm); wing.scale.set(5,1,1); wing.position.set(-P.len/2+0.18,P.sh+0.36,0); wing.rotation.z=-0.12; wing.castShadow=!ghost; g.add(wing);
       for(const z of [-P.wid*0.32,P.wid*0.32]){ const st=new THREE.Mesh(new THREE.BoxGeometry(0.2,0.34,0.04),sm); st.position.set(-P.len/2+0.2,P.sh+0.18,z); g.add(st); } }
     g.userData.len=P.len; return g;
   }
