@@ -1078,14 +1078,15 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
       for(const c of cars){ c.mesh.visible=true; poseCar(c.mesh,c.z,c.offset,c.yaw,c.speed,dt,c.yaw*2); c.mesh.userData.rearMat.emissiveIntensity=c.speed<speed*0.7?6:0.6; }
       if(ghostMesh){ if(mode==='tt'&&ghost&&state==='racing'){ const g=ghostAt(lapClock); ghostMesh.visible=!g.done||lapClock<ghost.t+400; poseCar(ghostMesh,g.z%trackLength,g.x,0,speed,dt,0); } else ghostMesh.visible=false; }
       // Kamera
-      const s=sample(position); const back=6.6+speedPct*1.8, up=2.1+speedPct*0.3;
+      // Kamera fest hinter dem Wagen: kein Nachziehen beim Beschleunigen, nur seitlich leicht gedämpft
+      const s=sample(position); const back=5.8+speedPct*0.6, up=2.0+speedPct*0.2;
       camTarget.set(s.x+s.nx*playerX*HW*0.85-s.fx*back, s.y+up, s.z+s.nz*playerX*HW*0.85-s.fz*back);
       camLook.set(s.x+s.nx*playerX*HW*0.85+s.fx*10, s.y+0.9, s.z+s.nz*playerX*HW*0.85+s.fz*10);
-      if(camReset){ camPos.copy(camTarget); camReset=false; } else camPos.lerp(camTarget,1-Math.exp(-dt*7));
+      if(camReset){ camPos.copy(camTarget); camReset=false; } else camPos.lerp(camTarget,1-Math.exp(-dt*30));
       camera.position.copy(camPos);
       if(shake>0.3){ camera.position.x+=(Math.random()-0.5)*shake*0.04; camera.position.y+=(Math.random()-0.5)*shake*0.04; shake*=0.86; }
       camera.lookAt(camLook); camera.rotation.z+=-steerVis*0.02*speedPct;
-      camera.fov=60+speedPct*16; camera.updateProjectionMatrix();
+      camera.fov=58+speedPct*7; camera.updateProjectionMatrix();
     }
     // Sonne und Schatten folgen der Kamera
     const focus=state==='menu'?camera.position:playerMesh.position;
