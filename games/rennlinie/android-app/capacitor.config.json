@@ -1,0 +1,12 @@
+{
+  "appId": "de.rennlinie.app",
+  "appName": "Rennlinie",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#0F1317",
+    "allowMixedContent": false
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

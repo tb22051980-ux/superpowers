@@ -1,4 +1,10 @@
 <title>Rennlinie</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0F1317">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap">
 <style>
   :root{
@@ -220,12 +226,13 @@
         <li><kbd>M</kbd> Motor stumm</li>
         <li><kbd>Enter</kbd> Zeitfahren beenden</li>
       </ul>
-      <p class="pad-hint" id="padHint">Gamepad: linker Stick lenkt, rechter Trigger Gas, linker Trigger Bremse, A startet, Start pausiert, B beendet das Zeitfahren, Steuerkreuz wechselt Strecke (oben/unten) und Wagen (links/rechts). Kein Gamepad erkannt, drücke eine Taste am Controller.</p>
+      <p class="pad-hint" id="padHint">Gamepad: linker Stick lenkt, rechter Trigger Gas, linker Trigger Bremse, A startet, Start pausiert, B beendet das Zeitfahren, Steuerkreuz wechselt Strecke (oben/unten) und Wagen (links/rechts). Xbox-Controller (USB oder Bluetooth) werden direkt erkannt, ebenso PlayStation- und die meisten anderen Pads. Kein Gamepad erkannt, drücke eine Taste am Controller.</p>
       <p class="note">Auf dem Handy erscheinen Tasten am unteren Rand. Neben der Strecke wird der Wagen langsam, Bäume und Schilder kosten fast die ganze Geschwindigkeit.</p>
 
       <div class="row">
         <button type="button" class="btn" id="btnStart">Start</button>
         <label class="check"><input type="checkbox" id="optSound" checked> Motorgeräusch</label>
+        <button type="button" class="btn ghost" id="btnInstall" hidden>Als App installieren</button>
         <span class="note" id="startBest" style="margin:0"></span>
       </div>
     </div>
@@ -426,7 +433,11 @@
 
   /* ================= Zustand ================= */
   const keys={left:false,right:false,gas:false,brake:false};
-  const pad={steer:0,gas:0,brake:0,connected:false,prev:{}};
+  const pad={steer:0,gas:0,brake:0,connected:false,prev:{},gp:null,rumbleUntil:0};
+  function rumble(strong,weak,ms){ // Vibration (Xbox, PlayStation, viele andere), still ignoriert wenn nicht unterstützt
+    const gp=pad.gp; if(!gp) return; const now=performance.now(); if(now<pad.rumbleUntil) return; pad.rumbleUntil=now+ms*0.8;
+    try{ const a=gp.vibrationActuator; if(a&&a.playEffect) a.playEffect('dual-rumble',{duration:ms,strongMagnitude:strong,weakMagnitude:weak}).catch(()=>{}); else if(gp.hapticActuators&&gp.hapticActuators[0]&&gp.hapticActuators[0].pulse) gp.hapticActuators[0].pulse(strong,ms).catch(()=>{}); }catch(e){}
+  }
   let state='menu';   // menu | countdown | racing | paused | finished
   let carDef=CARS[0], position=0, playerX=0, speed=0, playerY=0, skyOffset=0;
   let maxSpeed=MAXSPEED, accelRate=0, lap=1, lapTimes=[], lapClock=0, bestLap=null, lastLap=null, lastPos=0;
@@ -554,16 +565,17 @@
 
     if(playerX<-1||playerX>1){
       if(speed>OFFROAD_LIMIT) speed=accelerate(speed,OFFROAD_DECEL,dt);
+      if(speed>MAXSPEED*0.05) rumble(0.15,0.5,120);
       for(const s of ps.sprites){
         const sw=spriteWidth(s.type);
         if(overlap(playerX,CARW,s.offset+sw/2*(s.offset>0?1:-1),sw)){
-          speed=Math.min(speed,MAXSPEED/6); position=increase(position,-PLAYER_Z,trackLength); break;
+          speed=Math.min(speed,MAXSPEED/6); position=increase(position,-PLAYER_Z,trackLength); rumble(1,1,350); break;
         }
       }
     }
     for(const car of ps.cars){
       if(speed>car.speed && overlap(playerX,CARW,car.offset,CARW,0.8)){
-        speed=car.speed*(car.speed/Math.max(speed,1)); position=increase(car.z,-PLAYER_Z,trackLength); break;
+        speed=car.speed*(car.speed/Math.max(speed,1)); position=increase(car.z,-PLAYER_Z,trackLength); rumble(0.6,0.8,200); break;
       }
     }
     playerX=clamp(playerX,-3,3); speed=clamp(speed,0,maxSpeed);
@@ -848,9 +860,11 @@
     if(e.code==='KeyR' && (state==='racing'||state==='paused'||state==='finished')){ startRace(); }
     if(e.code==='KeyM'){ audio.toggleMute(); }
     if(e.code==='Enter'){ endTimeTrial(); }
+    if(e.code==='F11'){ e.preventDefault(); toggleFullscreen(); }
   });
   window.addEventListener('keyup',e=>{ if(e.code in KEYMAP){ keys[KEYMAP[e.code]]=false; e.preventDefault(); } });
   window.addEventListener('blur',()=>{ for(const k in keys) keys[k]=false; if(state==='racing') togglePause(); });
+  function toggleFullscreen(){ try{ if(document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen({navigationUI:'hide'}); }catch(e){} }
   function togglePause(){
     if(state==='racing'||state==='countdown'){ pauseFrom=state; state='paused'; showMsg('PAUSE',1e9,false); }
     else if(state==='paused'){ state=pauseFrom; ui.msg.hidden=true; }
@@ -869,6 +883,7 @@
   function pollGamepad(){
     const gps=navigator.getGamepads?navigator.getGamepads():[]; let gp=null;
     for(const g of gps){ if(g && g.connected){ gp=g; break; } }
+    pad.gp=gp;
     if(!gp){ pad.steer=0; pad.gas=0; pad.brake=0; if(pad.connected){ pad.connected=false; $('padHint').innerHTML='Gamepad getrennt.'; } return; }
     if(!pad.connected){ pad.connected=true; $('padHint').innerHTML='<b>Gamepad verbunden:</b> '+gp.id.replace(/\(.*?\)/g,'').trim()+'. Linker Stick lenkt, rechter Trigger Gas, linker Trigger Bremse, A startet, Start pausiert.'; }
     const dz=v=>Math.abs(v)<0.12?0:(v-Math.sign(v)*0.12)/0.88;
@@ -884,7 +899,7 @@
     if(state==='menu'){
       if(eUp||eDown){ let i=TRACKS.indexOf(trackDef)+(eDown?1:-1); i=(i+TRACKS.length)%TRACKS.length; trackDef=TRACKS[i]; $('trk-'+trackDef.id).checked=true; $('trk-'+trackDef.id).scrollIntoView({block:'nearest'}); showBest(); }
       if(eL||eR){ let i=CARS.indexOf(carDef)+(eR?1:-1); i=(i+CARS.length)%CARS.length; carDef=CARS[i]; $('car-'+carDef.id).checked=true; $('car-'+carDef.id).scrollIntoView({block:'nearest'}); showBest(); }
-      if(eA) startRace();
+      if(eA){ startRace(); rumble(0.3,0.6,120); }
     } else if(state==='finished' && !ui.result.hidden){
       if(eA) startRace();
     } else {
@@ -947,6 +962,15 @@
     render();
     if(!ui.hud.hidden) hud();
     requestAnimationFrame(frame);
+  }
+
+  /* ================= App-Installation (PWA) ================= */
+  let installPrompt=null;
+  window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); installPrompt=e; $('btnInstall').hidden=false; });
+  $('btnInstall').addEventListener('click',async()=>{ if(!installPrompt) return; installPrompt.prompt(); try{ await installPrompt.userChoice; }catch(e){} installPrompt=null; $('btnInstall').hidden=true; });
+  window.addEventListener('appinstalled',()=>{ $('btnInstall').hidden=true; });
+  if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
+    window.addEventListener('load',()=>{ navigator.serviceWorker.register('./sw.js').catch(()=>{}); });
   }
 
   function boot(data){
